@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>經典貪食蛇</title>
+  <style>
+    /* 基礎重置與日系無印風質感字型設定 */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Helvetica Neue", "Noto Sans JP", Arial, sans-serif;
+      background-color: #dbebe6; /* 圖片背景淺淡青綠色 */
+      color: #2b2b2b; /* 近純黑深灰色 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      touch-action: manipulation;
+    }
+
+    /* 主要容器：使用 flex 與 clamp 確保單頁完整呈現 */
+    .game-container {
+      width: 100%;
+      max-width: 420px;
+      max-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #222222;
+      margin-bottom: 2px;
+      letter-spacing: 1.5px;
+    }
+
+    .instructions {
+      font-size: 0.75rem;
+      color: #55606e;
+      line-height: 1.2;
+    }
+
+    /* 分數面板 */
+    .score-board {
+      width: 100%;
+      background-color: #ffffff;
+      border: 1px solid #c2d6d0;
+      border-radius: 10px;
+      padding: 6px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #333333;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .score-value {
+      color: #6c9bc2;
+      font-size: 1.15rem;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-weight: bold;
+    }
+
+    /* 遊戲畫布容器：根據視高彈性縮放 */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: min(100%, 50vh);
+      aspect-ratio: 1 / 1;
+      background-color: #6c9bc2; /* 圖片中圓形的柔和天藍色 */
+      border: 3px solid #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      margin: 0 auto;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 遮罩面板 (設定與遊戲結束) */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(245, 248, 247, 0.96);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 10px;
+      z-index: 10;
+      overflow-y: auto;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: #d9534f;
+      letter-spacing: 1px;
+    }
+
+    .overlay-title.setup {
+      color: #222222;
+    }
+
+    /* 表單元件 */
+    .form-group {
+      width: 100%;
+      max-width: 240px;
+      margin-bottom: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+
+    .form-group label {
+      font-size: 0.72rem;
+      color: #444444;
+      font-weight: 600;
+    }
+
+    .form-group input[type="number"], .form-group select {
+      width: 100%;
+      padding: 4px 8px;
+      background-color: #ffffff;
+      border: 1px solid #bdcbd3;
+      border-radius: 6px;
+      color: #222222;
+      font-size: 0.8rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: #6c9bc2;
+    }
+
+    /* 顏色選取分組區塊 */
+    .color-section {
+      width: 100%;
+      max-width: 240px;
+      margin-top: 2px;
+      margin-bottom: 4px;
+      border-top: 1px solid #d0dcd8;
+      padding-top: 4px;
+    }
+
+    .color-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #222222;
+      margin-bottom: 4px;
+    }
+
+    .color-picker-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .color-item {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .color-item label {
+      font-size: 0.68rem;
+      color: #555555;
+      font-weight: 500;
+    }
+
+    .color-item input[type="color"] {
+      -webkit-appearance: none;
+      border: 1px solid #bdcbd3;
+      border-radius: 4px;
+      width: 100%;
+      height: 24px;
+      cursor: pointer;
+      background: #ffffff;
+      padding: 1px;
+    }
+
+    .color-item input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .color-item input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 3px;
+    }
+
+    .error-msg {
+      color: #d9534f;
+      font-size: 0.72rem;
+      min-height: 14px;
+      margin-top: 1px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    /* 按鈕樣式 (無印良品簡約日系風格) */
+    .btn {
+      background-color: #222222;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      min-width: 110px;
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+      background-color: #444444;
+    }
+
+    /* 手機觸控按鈕區 */
+    .controls {
+      width: 100%;
+      max-width: 200px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .touch-btn {
+      background-color: #ffffff;
+      border: 1px solid #c2d6d0;
+      border-radius: 8px;
+      color: #222222;
+      font-size: 1rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 38px;
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    .touch-btn:active {
+      background-color: #e3edea;
+      border-color: #6c9bc2;
+    }
+
+    .btn-up { grid-column: 2; grid-row: 1; }
+    .btn-left { grid-column: 1; grid-row: 2; }
+    .btn-right { grid-column: 3; grid-row: 2; }
+    .btn-down { grid-column: 2; grid-row: 3; }
+
+    @media (min-width: 768px) {
+      .controls {
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <header>
+      <h1>經典貪食蛇</h1>
+      <p class="instructions">桌機使用 WASD / 方向鍵控制<br>手機點擊下方大型按鈕控制移動</p>
+    </header>
+
+    <div class="score-board">
+      <span>目前分數</span>
+      <span id="currentScore" class="score-value">0</span>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+      <!-- 初始遊戲設定面板 -->
+    <div id="setupOverlay" class="overlay">
+      <div class="overlay-title setup">遊戲規則與色彩設定</div>
+      
+      <div class="form-group">
+        <label for="initLength">初始蛇長 (正整數):</label>
+        <input type="number" id="initLength" min="1" max="100" value="3" placeholder="例如：3">
+      </div>
+
+      <div class="form-group">
+        <label for="initDirection">初始方向:</label>
+        <select id="initDirection">
+          <option value="RIGHT" selected>向右 (Right)</option>
+          <option value="LEFT">向左 (Left)</option>
+          <option value="UP">向上 (Up)</option>
+          <option value="DOWN">向下 (Down)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="foodScore">每個食物分數 (非負整數):</label>
+        <input type="number" id="foodScore" min="0" value="10" placeholder="例如：10">
+      </div>
+
+      <div class="form-group">
+        <label for="growthRate">每次增長格數 (正整數):</label>
+        <input type="number" id="growthRate" min="1" max="20" value="1" placeholder="例如：1">
+      </div>
+
+      <!-- 自訂色彩設定區塊 (預設套用圖片畫風調色) -->
+        <div class="color-section">
+          <div class="color-section-title">自訂畫面色彩</div>
+          <div class="color-picker-grid">
+            <div class="color-item">
+              <label for="bgColor">遊戲區背景</label>
+              <input type="color" id="bgColor" value="#6c9bc2">
+            </div>
+            <div class="color-item">
+              <label for="snakeHeadColor">蛇頭顏色</label>
+              <input type="color" id="snakeHeadColor" value="#222222">
+            </div>
+            <div class="color-item">
+              <label for="snakeBodyColor">蛇身顏色</label>
+              <input type="color" id="snakeBodyColor" value="#ffffff">
+            </div>
+            <div class="color-item">
+              <label for="foodColor">食物顏色</label>
+              <input type="color" id="foodColor" value="#d9534f">
+            </div>
+          </div>
+        </div>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <button id="startBtn" class="btn">開始遊戲</button>
+      </div>
+
+      <!-- 遊戲結束面板 -->
+      <div id="gameOverOverlay" class="overlay hidden" style="justify-content: center;">
+        <div class="overlay-title">遊戲結束</div>
+        <p style="font-size: 1.1rem; margin-bottom: 16px; color: #333333;">本局得分：<span id="finalScore" class="score-value">0</span></p>
+        <button id="restartBtn" class="btn">重新開始</button>
+      </div>
+    </div>
+
+    <!-- 手機觸控操作按鈕 -->
+    <div class="controls">
+      <button class="touch-btn btn-up" id="btnUp" aria-label="向上">▲</button>
+      <button class="touch-btn btn-left" id="btnLeft" aria-label="向左">◀</button>
+      <button class="touch-btn btn-right" id="btnRight" aria-label="向右">▶</button>
+      <button class="touch-btn btn-down" id="btnDown" aria-label="向下">▼</button>
+    </div>
+  </div>
+
+  <script>
+    // 棋盤與格線大小 (20x20 網格)
+    const GRID_SIZE = 20;
+    const BOARD_TILES = 20; // 20 * 20 = 400
+    const CANVAS_PIXEL_SIZE = 400;
+
+    // DOM 元素引用
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const setupOverlay = document.getElementById('setupOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const currentScoreEl = document.getElementById('currentScore');
+    const finalScoreEl = document.getElementById('finalScore');
+    const errorMsgEl = document.getElementById('errorMsg');
+
+    // 遊戲參數輸入欄位
+    const initLengthInput = document.getElementById('initLength');
+    const initDirectionSelect = document.getElementById('initDirection');
+    const foodScoreInput = document.getElementById('foodScore');
+    const growthRateInput = document.getElementById('growthRate');
+
+    // 色彩設定輸入欄位
+    const bgColorInput = document.getElementById('bgColor');
+    const snakeHeadColorInput = document.getElementById('snakeHeadColor');
+    const snakeBodyColorInput = document.getElementById('snakeBodyColor');
+    const foodColorInput = document.getElementById('foodColor');
+
+    // 按鈕
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    // 遊戲狀態變數
+    let snake = [];
+    let direction = 'RIGHT';
+    let nextDirection = 'RIGHT';
+    let food = { x: 0, y: 0 };
+    let score = 0;
+    let pendingGrowth = 0;
+    let gameInterval = null;
+    let isGameRunning = false;
+
+    // 當前運行的設定參數 (預設色彩調和自圖片風格)
+    let config = {
+      initLength: 3,
+      initDirection: 'RIGHT',
+      foodScore: 10,
+      growthRate: 1,
+      bgColor: '#6c9bc2',
+      snakeHeadColor: '#222222',
+      snakeBodyColor: '#ffffff',
+      foodColor: '#d9534f'
+    };
+
+    /**
+     * 驗證玩家設定欄位並載入設定（包含色彩）
+     */
+    function validateAndLoadConfig() {
+      const lengthVal = parseInt(initLengthInput.value, 10);
+      const dirVal = initDirectionSelect.value;
+      const scoreVal = parseInt(foodScoreInput.value, 10);
+      const growthVal = parseInt(growthRateInput.value, 10);
+
+      // 檢查數值與選單欄位是否未填
+      if (isNaN(lengthVal) || !dirVal || isNaN(scoreVal) || isNaN(growthVal)) {
+        return "請完整填寫所有規則設定欄位！";
+      }
+
+      // 正整數檢查
+      if (lengthVal <= 0) {
+        return "初始蛇長必須為正整數（大於 0）！";
+      }
+
+      // 蛇長度不能超過棋盤總格數 (400)
+      if (lengthVal > BOARD_TILES * BOARD_TILES) {
+        return `初始蛇長超出棋盤邊界（最多 ${BOARD_TILES * BOARD_TILES} 格）！`;
+      }
+
+      // 非負整數檢查
+      if (scoreVal < 0) {
+        return "食物分數必須為非負整數（≥ 0）！";
+      }
+
+      // 增長格數檢查
+      if (growthVal <= 0) {
+        return "增長格數必須為正整數（大於 0）！";
+      }
+
+      // 設定成功，寫入設定物件
+      config.initLength = lengthVal;
+      config.initDirection = dirVal;
+      config.foodScore = scoreVal;
+      config.growthRate = growthVal;
+
+      // 載入玩家選取或維持預設的色彩設定
+      config.bgColor = bgColorInput.value || '#6c9bc2';
+      config.snakeHeadColor = snakeHeadColorInput.value || '#222222';
+      config.snakeBodyColor = snakeBodyColorInput.value || '#ffffff';
+      config.foodColor = foodColorInput.value || '#d9534f';
+
+      return null;
+    }
+
+    /**
+     * 根據方向生成蛇的初始位置 (確保整條蛇都在網格內部)
+     */
+    function generateInitialSnake(length, dir) {
+      let headX, headY, dx = 0, dy = 0;
+
+      // 預設蛇頭置中附近，根據移動方向計算身體伸展趨向
+      if (dir === 'RIGHT') {
+        headX = Math.min(BOARD_TILES - 1, Math.max(length - 1, 10));
+        headY = 10;
+        dx = -1; dy = 0;
+      } else if (dir === 'LEFT') {
+        headX = Math.max(0, Math.min(BOARD_TILES - length, 9));
+        headY = 10;
+        dx = 1; dy = 0;
+      } else if (dir === 'DOWN') {
+        headX = 10;
+        headY = Math.min(BOARD_TILES - 1, Math.max(length - 1, 10));
+        dx = 0; dy = -1;
+      } else if (dir === 'UP') {
+        headX = 10;
+        headY = Math.max(0, Math.min(BOARD_TILES - length, 9));
+        dx = 0; dy = 1;
+      }
+
+      const initialSnake = [];
+      for (let i = 0; i < length; i++) {
+        let segX = headX + i * dx;
+        let segY = headY + i * dy;
+
+        // 若蛇長過長導致擠壓，強制限制在棋盤內
+        segX = Math.max(0, Math.min(BOARD_TILES - 1, segX));
+        segY = Math.max(0, Math.min(BOARD_TILES - 1, segY));
+
+        initialSnake.push({ x: segX, y: segY });
+      }
+
+      return initialSnake;
+    }
+
+    /**
+     * 開始或重置遊戲
+     */
+    function startGame() {
+      // 停止既有計時器，避免速度累加
+      if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+      }
+
+      // 重置狀態變數
+      score = 0;
+      pendingGrowth = 0;
+      currentScoreEl.textContent = score;
+
+      direction = config.initDirection;
+      nextDirection = config.initDirection;
+      snake = generateInitialSnake(config.initLength, config.initDirection);
+
+      spawnFood();
+
+      // 隱藏面板
+      setupOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+
+      isGameRunning = true;
+      draw();
+
+      // 啟動主迴圈 (固定速率每 120ms 移動一格)
+      gameInterval = setInterval(gameLoop, 120);
+    }
+
+    /**
+     * 生成新食物（必須在未被蛇身占據的空格）
+     */
+    function spawnFood() {
+      const emptyCells = [];
+
+      for (let x = 0; x < BOARD_TILES; x++) {
+        for (let y = 0; y < BOARD_TILES; y++) {
+          const isOccupied = snake.some(segment => segment.x === x && segment.y === y);
+          if (!isOccupied) {
+            emptyCells.push({ x, y });
+          }
+        }
+      }
+
+      if (emptyCells.length > 0) {
+        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+        food = emptyCells[randomIndex];
+      }
+    }
+
+    /**
+     * 遊戲邏輯主更新函式
+     */
+    function gameLoop() {
+      if (!isGameRunning) return;
+
+      direction = nextDirection;
+
+      // 計算新蛇頭位置
+      const head = { ...snake[0] };
+      if (direction === 'UP') head.y -= 1;
+      else if (direction === 'DOWN') head.y += 1;
+      else if (direction === 'LEFT') head.x -= 1;
+      else if (direction === 'RIGHT') head.x += 1;
+
+      // 碰撞檢查 1：撞牆
+      if (head.x < 0 || head.x >= BOARD_TILES || head.y < 0 || head.y >= BOARD_TILES) {
+        endGame();
+        return;
+      }
+
+      // 碰撞檢查 2：撞到自己身體
+      const selfCollide = snake.some(segment => segment.x === head.x && segment.y === head.y);
+      if (selfCollide) {
+        endGame();
+        return;
+      }
+
+      // 移動蛇頭
+      snake.unshift(head);
+
+      // 檢查是否吃到食物
+      if (head.x === food.x && head.y === food.y) {
+        score += config.foodScore;
+        currentScoreEl.textContent = score;
+        pendingGrowth += config.growthRate;
+        spawnFood();
+      }
+
+      // 處理蛇身長度增長邏輯
+      if (pendingGrowth > 0) {
+        pendingGrowth--;
+      } else {
+        snake.pop(); // 若沒有累積增加長度，移除尾巴
+      }
+
+      draw();
+    }
+
+    /**
+     * 遊戲結束處理
+     */
+    function endGame() {
+      isGameRunning = false;
+      if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+      }
+      finalScoreEl.textContent = score;
+      gameOverOverlay.classList.remove('hidden');
+    }
+
+    /**
+     * 繪製遊戲畫面 (使用動態自訂色彩)
+     */
+    function draw() {
+      // 清空畫布背景（動態套用玩家設定之背景色彩）
+      ctx.fillStyle = config.bgColor;
+      ctx.fillRect(0, 0, CANVAS_PIXEL_SIZE, CANVAS_PIXEL_SIZE);
+
+      // 繪製棋盤微弱格線，輔助視覺分辨
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= BOARD_TILES; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * GRID_SIZE, 0);
+        ctx.lineTo(i * GRID_SIZE, CANVAS_PIXEL_SIZE);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i * GRID_SIZE);
+        ctx.lineTo(CANVAS_PIXEL_SIZE, i * GRID_SIZE);
+        ctx.stroke();
+      }
+
+      // 繪製食物 (圓形，使用動態食物色彩)
+      ctx.fillStyle = config.foodColor;
+      ctx.beginPath();
+      const foodCenterX = food.x * GRID_SIZE + GRID_SIZE / 2;
+      const foodCenterY = food.y * GRID_SIZE + GRID_SIZE / 2;
+      ctx.arc(foodCenterX, foodCenterY, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 繪製蛇身 (使用動態蛇頭與蛇身色彩)
+      snake.forEach((segment, index) => {
+        if (index === 0) {
+          ctx.fillStyle = config.snakeHeadColor; // 蛇頭
+        } else {
+          ctx.fillStyle = config.snakeBodyColor; // 蛇身
+        }
+
+        const padding = 1;
+        const x = segment.x * GRID_SIZE + padding;
+        const y = segment.y * GRID_SIZE + padding;
+        const size = GRID_SIZE - padding * 2;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, size, size, index === 0 ? 5 : 3);
+        ctx.fill();
+      });
+    }
+
+    /**
+     * 變更方向 (防直接反向)
+     */
+    function setDirection(newDir) {
+      if (!isGameRunning) return;
+
+      if (newDir === 'UP' && direction !== 'DOWN') nextDirection = 'UP';
+      else if (newDir === 'DOWN' && direction !== 'UP') nextDirection = 'DOWN';
+      else if (newDir === 'LEFT' && direction !== 'RIGHT') nextDirection = 'LEFT';
+      else if (newDir === 'RIGHT' && direction !== 'LEFT') nextDirection = 'RIGHT';
+    }
+
+    // 桌機鍵盤事件監聽
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+
+      switch (e.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+          setDirection('UP');
+          break;
+        case 'ArrowDown':
+        case 'KeyS':
+          setDirection('DOWN');
+          break;
+        case 'ArrowLeft':
+        case 'KeyA':
+          setDirection('LEFT');
+          break;
+        case 'ArrowRight':
+        case 'KeyD':
+          setDirection('RIGHT');
+          break;
+      }
+    });
+
+    // 綁定觸控/點擊控制按鈕事件
+    function bindControlBtn(btnId, dir) {
+      const btn = document.getElementById(btnId);
+      const handlePress = (e) => {
+        e.preventDefault();
+        setDirection(dir);
+      };
+
+      btn.addEventListener('touchstart', handlePress, { passive: false });
+      btn.addEventListener('click', handlePress);
+    }
+
+    bindControlBtn('btnUp', 'UP');
+    bindControlBtn('btnDown', 'DOWN');
+    bindControlBtn('btnLeft', 'LEFT');
+    bindControlBtn('btnRight', 'RIGHT');
+
+    // 「開始遊戲」按鈕事件
+    startBtn.addEventListener('click', () => {
+      errorMsgEl.textContent = '';
+      const error = validateAndLoadConfig();
+      if (error) {
+        errorMsgEl.textContent = error;
+        return;
+      }
+      startGame();
+    });
+
+    // 「重新開始」按鈕事件
+    restartBtn.addEventListener('click', () => {
+      startGame();
+    });
+
+    // 初始化畫布繪製背景網格
+    draw();
+  </script>
+</body>
+</html>
